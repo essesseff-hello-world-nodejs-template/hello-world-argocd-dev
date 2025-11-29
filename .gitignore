@@ -1,0 +1,12 @@
+# Argo CD repository secrets (contains GitHub tokens - DO NOT COMMIT)
+argocd-repository-secret.yaml
+*argocd-repository-secret*.yaml
+**/argocd-repository-secret.yaml
+ghcr-credentials-secret.yaml
+*ghcr-credentials-secret*.yaml
+**/ghcr-credentials-secret.yaml
+
+# Any files with actual tokens
+*-with-token.yaml
+*-secrets.yaml
+**/*token*.yaml
