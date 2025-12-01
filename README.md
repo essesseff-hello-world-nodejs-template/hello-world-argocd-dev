@@ -11,6 +11,8 @@ hello-world-argocd-dev/
 │   └── hello-world-dev-application.yaml  # DEV environment Application manifest (auto-synced)
 ├── argocd-repository-secret.yaml     # Argo CD repository secrets (configure before applying)
 ├── ghcr-credentials-secret.yaml      # GHCR credentials (set once for organization)
+├── notifications-configmap.yaml      # Argo CD notifications configuration
+├── setup-argocd.sh                   # Argo CD setup script
 └── README.md                          # This file
 ```
 
@@ -24,34 +26,35 @@ hello-world-argocd-dev/
 
 ### Deploy to Argo CD
 
-1. **Configure Argo CD repository access** (if not already done):
-   ```bash
-   # Edit argocd-repository-secret.yaml with your GitHub Argo CD machine username and token
-   # ***BE SURE TO DELETE THE FILE AFTERWARDS SO AS NOT TO COMMIT THE FILE CONTENTS TO GITHUB***
-   kubectl apply -f argocd-repository-secret.yaml
-   ```
+1. **Configure Argo CD repository access**:
+   
+   Edit argocd-repository-secret.yaml with your GitHub Argo CD machine username and token
    
    This creates secrets for Argo CD to access:
    - `hello-world-argocd-dev` repository (to read Application manifests)
    - `hello-world-config-dev` repository (to read Helm charts and values)
 
-2. **Configure Argo CD access to GitHub Container Registry (GHCR)** (if not already done):
-   ```bash
-   # Edit ghcr-credentials-secret.yaml with your GitHub Argo CD machine username, token, email, and base64 credentials
-   # ***BE SURE TO DELETE THE FILE AFTERWARDS SO AS NOT TO COMMIT THE FILE CONTENTS TO GITHUB***
-   kubectl apply -f ghcr-credentials-secret.yaml
-   ```
+2. **Configure Argo CD access to GitHub Container Registry (GHCR)**:
+   
+   Edit ghcr-credentials-secret.yaml with your GitHub Argo CD machine username, token, email, and base64 credentials
    
    **Note**: This secret can be set once for the entire GitHub organization and will be used by Argo CD to pull container images from GHCR for all environments. You do not need to create separate secrets for each environment repository.
 
-3. **Apply the root Application (app-of-apps.yaml)**:
-   ```bash
-   kubectl apply -f https://raw.githubusercontent.com/essesseff-hello-world-go-template/hello-world-argocd-dev/main/app-of-apps.yaml
-   ```
-   
-   This root Application watches the `argocd/` directory in this repository and automatically applies `hello-world-dev-application.yaml`. Once applied, any changes to `argocd/hello-world-dev-application.yaml` will be automatically synced by Argo CD. Changes to other files in the root directory (README.md, etc.) will not trigger re-syncs.
+3. **Configure Argo CD notifications secrets**:
 
-4. **Verify in Argo CD UI**:
+   Request the notifications-secret.yaml file contents from the essesseff UX for hello-world here:
+   https://www.essesseff.com/home/YOUR_TEAM/apps/hello-world
+
+   Save the contents to ./notifications-secret.yaml 
+
+4. **Run the setup-argocd.sh script**:
+   ```bash
+   ./setup-argocd.sh
+   ```
+
+   This script applies all secrets, configmaps, Argo CD application definitions, etc. for hello-world DEV.
+
+5. **Verify in Argo CD UI**:
    ```bash
    kubectl port-forward svc/argocd-server -n argocd 8080:443
    # Access: https://localhost:8080
@@ -61,7 +64,7 @@ hello-world-argocd-dev/
    - `hello-world-argocd-dev` - Root Application (watches this repository)
    - `hello-world-dev` - Environment Application (auto-synced by root Application)
 
-5. **Access the deployed application**:
+6. **Access the deployed application**:
    ```bash
    kubectl port-forward service/hello-world-dev 8081:80 -n essesseff-hello-world-go-template
    # Access: http://localhost:8081
@@ -79,11 +82,10 @@ hello-world-argocd-dev/
 
 ### Automatic Deployment
 
-1. Push code to `main` branch in `hello-world` repository
+1. Push code to `main` branch in `hello-world` source code repository
 2. GitHub Actions builds container image
-3. essesseff webhook triggers
-4. essesseff auto-updates `hello-world-config-dev/Chart.yaml` and `hello-world-config-dev/values.yaml` with new image tag
-5. Argo CD syncs DEV Application automatically
+3. essesseff GitHub App webhook triggers essesseff to auto-update `hello-world-config-dev/Chart.yaml` and `hello-world-config-dev/values.yaml` with new image tag
+4. Argo CD syncs DEV Application automatically
 
 ## Repository URLs
 
@@ -114,12 +116,10 @@ This will:
 - Add up to 10 seconds of jitter (total: 60-70 seconds)
 - Allow Argo CD to detect changes in `argocd/hello-world-dev-application.yaml` more quickly
 
-**Note**: For even faster detection, consider configuring webhooks from GitHub to Argo CD for near-instant change detection.
-
 ## How It Works
 
 1. **essesseff manages** image lifecycle and promotion decisions
-2. **essesseff updates** `values.yaml` files in config repos (e.g., `hello-world-config-dev/values.yaml`) with approved image tags
+2. **essesseff updates** `Chart.yaml` and `values.yaml` files in config repos with approved image tags
 3. **Argo CD detects** changes via Git polling (default: ~3 minutes, configurable to 60 seconds)
 4. **Argo CD syncs** Application automatically (auto-sync enabled)
 5. **Kubernetes resources** are updated with new image versions
@@ -128,4 +128,7 @@ This will:
 
 - [essesseff Documentation](https://essesseff.com/docs) - essesseff platform documentation
 - [Argo CD Documentation](https://argo-cd.readthedocs.io/) - Argo CD documentation
+- [Helm Documentation](https://helm.sh/docs) - Helm documentation
+- [Kubernetes Documentation](https://kubernetes.io/docs/home/) - Kubernetes (K8s) documentation
+- [GitHub Documentation](https://docs.github.com/en) - GitHub documentation
 
