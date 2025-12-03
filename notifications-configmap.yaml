@@ -29,7 +29,6 @@ data:
             "app_secret": "$app-secret-hello-world",
             "repository_id": "{{index .app.metadata.annotations \"essesseff.io/repository-id\"}}",
             "event_type": "{{.app.status.operationState.phase}}",
-            "event_trigger": "sync_status_change",
             "application_name": "{{.app.metadata.name}}",
             "app": "{{.app.metadata.labels.app}}",
             "environment": "{{.app.metadata.labels.environment}}",
