@@ -1,17 +1,52 @@
 #!/bin/bash
+
 # setup-argocd.sh
-# Setup Argo CD for hello-world DEV
+
+# Setup Argo CD for {{APP_NAME}} {{ENVIRONMENT}}
+
+# This script sets up Argo CD notifications for an essesseff app
+# Template variables ({{APP_NAME}}, {{GITHUB_ORG}}, {{REPOSITORY_ID}}, etc.) 
+# are replaced when apps are created from templates
 
 set -e
 
+APP_NAME="hello-world"
+GITHUB_ORG="essesseff-hello-world-go-template"
+ENVIRONMENT="dev"
+REPOSITORY_ID="{{REPOSITORY_ID}}"
+
 echo "=========================================="
-echo "Setting up Argo CD for hello-world DEV"
+echo "Setting up Argo CD for ${APP_NAME} ${ENVIRONMENT}"
 echo "=========================================="
+
+# Verify Argo CD Notifications catalog is installed
+# This should be installed once per cluster using setup-argocd-cluster.sh
+echo ""
+echo "📦 Verifying Argo CD Notifications catalog installation..."
+if kubectl get configmap argocd-notifications-cm -n argocd &> /dev/null; then
+  if kubectl get configmap argocd-notifications-cm -n argocd -o yaml | grep -q "trigger.on-sync-succeeded:"; then
+    echo "  ✓ Notifications catalog is installed"
+  else
+    echo "  ✗ ERROR: ConfigMap exists but catalog triggers not found"
+    echo ""
+    echo "  The Argo CD Notifications catalog must be installed first."
+    echo "  Run: ./setup-argocd-cluster.sh"
+    echo "  Or manually: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/notifications_catalog/install.yaml"
+    exit 1
+  fi
+else
+  echo "  ✗ ERROR: ConfigMap 'argocd-notifications-cm' not found"
+  echo ""
+  echo "  The Argo CD Notifications catalog must be installed first."
+  echo "  Run: ./setup-argocd-cluster.sh"
+  echo "  Or manually: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/notifications_catalog/install.yaml"
+  exit 1
+fi
 
 # Check if ghcr-credentials-secret.yaml exists
 if [ ! -f "ghcr-credentials-secret.yaml" ]; then
   echo "❌ Error: ghcr-credentials-secret.yaml not found"
-  echo "Please ensure ghcr-credentials-secret.yaml exists and has the correct secret for essesseff-hello-world-go-template"
+  echo "Please ensure ghcr-credentials-secret.yaml exists and has the correct secret for ${GITHUB_ORG}"
   echo ""
   read -p "Continue anyway (for example, in the case of ghcr-credentials having been previously applied on this K8s cluster)? (y/n) " -n 1 -r
   echo
@@ -24,14 +59,14 @@ fi
 # Check if argocd-repository-secret.yaml exists
 if [ ! -f "argocd-repository-secret.yaml" ]; then
   echo "❌ Error: argocd-repository-secret.yaml not found"
-  echo "Please ensure argocd-repository-secret.yaml exists and has the correct secrets for hello-world"
+  echo "Please ensure argocd-repository-secret.yaml exists and has the correct secrets for ${APP_NAME}"
   exit 1
 fi
 
 # Check if notifications-secret.yaml exists
 if [ ! -f "notifications-secret.yaml" ]; then
   echo "❌ Error: notifications-secret.yaml not found"
-  echo "Please request essesseff provide your notifications-secret.yaml first for hello-world (or if not using essesseff, you can create a \"dummy\" notifications-secret.yaml)"
+  echo "Please request essesseff provide your notifications-secret.yaml first for ${APP_NAME} (or if not using essesseff, you can create a \"dummy\" notifications-secret.yaml)"
   exit 1
 fi
 
@@ -43,10 +78,10 @@ fi
 
 # Warning about secrets
 echo ""
-echo "⚠️  WARNING: You are about to apply secrets to your cluster for essesseff-hello-world-go-template organization and hello-world DEV"
+echo "⚠️  WARNING: You are about to apply secrets to your cluster for ${GITHUB_ORG} organization and ${APP_NAME} ${ENVIRONMENT}"
 echo ""
-echo "Make sure ghcr-credentials-secret.yaml contains the correct secrets for essesseff-hello-world-go-template"
-echo "Make sure argocd-repository-secret.yaml and notifications-secret.yaml contain the correct secrets for hello-world"
+echo "Make sure ghcr-credentials-secret.yaml contains the correct secrets for ${GITHUB_ORG}"
+echo "Make sure argocd-repository-secret.yaml and notifications-secret.yaml contain the correct secrets for ${APP_NAME}"
 echo ""
 read -p "Continue? (y/n) " -n 1 -r
 echo
@@ -61,36 +96,27 @@ if [ -f "ghcr-credentials-secret.yaml" ]; then
   echo "📝 Applying GHCR image pull secrets..."
   kubectl apply -f ghcr-credentials-secret.yaml
 fi
+
 echo ""
 echo "📝 Applying config repo secrets..."
 kubectl apply -f argocd-repository-secret.yaml
+
 echo ""
 echo "📝 Applying notification secrets..."
 kubectl apply -f notifications-secret.yaml
 
-# Apply configmap
-echo "📝 Applying notification configmap..."
-kubectl apply -f notifications-configmap.yaml
-
-# Ensure controller uses the correct ConfigMap/Secret
-kubectl patch deploy argocd-notifications-controller -n argocd \
-  -p '{
-    "spec": {
-      "template": {
-        "spec": {
-          "containers": [{
-            "name": "argocd-notifications-controller",
-            "env": [
-              {"name": "NOTIFICATIONS_CM_NAME", "value": "argocd-notifications-cm"},
-              {"name": "NOTIFICATIONS_SECRET_NAME", "value": "argocd-notifications-secret"}
-            ]
-          }]
-        }
-      }
-    }
-  }'
+# Patch configmap (merge, don't override)
+# This is safe because we use repository ID-based naming (webhook-{REPOSITORY_ID})
+# which ensures unique keys per app/environment
+echo "📝 Patching notification configmap (merging with existing entries)..."
+kubectl patch configmap argocd-notifications-cm -n argocd \
+  --type merge \
+  --patch-file notifications-configmap.yaml
 
 # Restart controller to reload config
+# Note: This restarts the controller for all apps, but it's necessary to pick up new webhook services
+# The restart is safe and idempotent - multiple restarts don't cause issues
+echo "🔄 Restarting notifications controller to reload configuration..."
 kubectl rollout restart deploy argocd-notifications-controller -n argocd
 
 # Verify configuration
@@ -98,24 +124,27 @@ echo ""
 echo "✅ Verifying configuration..."
 
 # Check if secrets exist
-if kubectl get secret ghcr-credentials -n essesseff-hello-world-go-template &> /dev/null; then
+if kubectl get secret ghcr-credentials -n ${GITHUB_ORG} &> /dev/null; then
   echo "  ✓ Secret 'ghcr-credentials' exists"
 else
   echo "  ✗ Secret 'ghcr-credentials' not found"
   exit 1
 fi
-if kubectl get secret hello-world-argocd-dev-repo -n argocd &> /dev/null; then
-  echo "  ✓ Secret 'hello-world-argocd-dev-repo' exists"
+
+if kubectl get secret ${APP_NAME}-argocd-${ENVIRONMENT}-repo -n argocd &> /dev/null; then
+  echo "  ✓ Secret '${APP_NAME}-argocd-${ENVIRONMENT}-repo' exists"
 else
-  echo "  ✗ Secret 'hello-world-argocd-dev-repo' not found"
+  echo "  ✗ Secret '${APP_NAME}-argocd-${ENVIRONMENT}-repo' not found"
   exit 1
 fi
-if kubectl get secret hello-world-config-dev-repo -n argocd &> /dev/null; then
-  echo "  ✓ Secret 'hello-world-config-dev-repo' exists"
+
+if kubectl get secret ${APP_NAME}-config-${ENVIRONMENT}-repo -n argocd &> /dev/null; then
+  echo "  ✓ Secret '${APP_NAME}-config-${ENVIRONMENT}-repo' exists"
 else
-  echo "  ✗ Secret 'hello-world-config-dev-repo' not found"
+  echo "  ✗ Secret '${APP_NAME}-config-${ENVIRONMENT}-repo' not found"
   exit 1
 fi
+
 if kubectl get secret argocd-notifications-secret -n argocd &> /dev/null; then
   echo "  ✓ Secret 'argocd-notifications-secret' exists"
 else
@@ -131,11 +160,11 @@ else
   exit 1
 fi
 
-# Check if webhook service is configured
-if kubectl get configmap argocd-notifications-cm -n argocd -o yaml | grep -q "service.webhook.webhook-hello-world"; then
-  echo "  ✓ Webhook service 'webhook-hello-world' configured"
+# Check if webhook service is configured (using repository ID)
+if kubectl get configmap argocd-notifications-cm -n argocd -o yaml | grep -q "service.webhook.webhook-${REPOSITORY_ID}"; then
+  echo "  ✓ Webhook service 'webhook-${REPOSITORY_ID}' configured"
 else
-  echo "  ✗ Webhook service 'webhook-hello-world' not configured"
+  echo "  ✗ Webhook service 'webhook-${REPOSITORY_ID}' not configured"
   exit 1
 fi
 
@@ -153,19 +182,20 @@ if [ ! -f "app-of-apps.yaml" ]; then
   exit 1
 fi
 
-# Check if argocd/hello-world-dev-application.yaml exists
-if [ ! -f "argocd/hello-world-dev-application.yaml" ]; then
-  echo "❌ Error: argocd/hello-world-dev-application.yaml not found"
+# Check if argocd application file exists
+ARGOCD_APP_FILE="argocd/${APP_NAME}-${ENVIRONMENT}-application.yaml"
+if [ ! -f "${ARGOCD_APP_FILE}" ]; then
+  echo "❌ Error: ${ARGOCD_APP_FILE} not found"
   exit 1
 fi
 
-# Apply app-of-apps for DEV
-echo "📝 Applying app-of-apps for DEV..."
+# Apply app-of-apps
+echo "📝 Applying app-of-apps for ${ENVIRONMENT}..."
 kubectl apply -f app-of-apps.yaml
 
 echo ""
 echo "=============================================="
-echo "✅ Argo CD for hello-world DEV setup complete!"
+echo "✅ Argo CD for ${APP_NAME} ${ENVIRONMENT} setup complete!"
 echo "=============================================="
 echo ""
 echo "!!!REMEMBER TO DELETE YOUR SECRETS YAMLS -- DO *NOT* COMMIT THEM TO GITHUB!!!"
