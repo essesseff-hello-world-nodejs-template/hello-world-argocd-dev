@@ -27,7 +27,7 @@ data:
         body: |
           {
             "app_secret": "$app-secret-{{REPOSITORY_ID}}",
-            "repository_id": "{{.app.metadata.labels.essesseff.io.repositoryId}}",
+            "repository_id": "{{REPOSITORY_ID}}",
             "event_type": "{{.app.status.operationState.phase}}",
             "application_name": "{{.app.metadata.name}}",
             "app": "{{.app.metadata.labels.app}}",
