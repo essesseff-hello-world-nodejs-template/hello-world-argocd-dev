@@ -71,7 +71,7 @@ data:
     - description: Application deployed successfully (synced and healthy)
       send:
       - app-sync-status
-      when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+      when: app.status.health.status == 'Healthy'
 
   trigger.on-health-degraded: |
     - description: Application health degraded
