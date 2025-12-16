@@ -23,6 +23,16 @@ data:
     message: |
       Application: {{.app.metadata.name}}
       Event: {{.app.status.operationState.phase}}
+      RepositoryId: {{.app.metadata.labels.config-env-repo-id}}
+      Environment: {{.app.metadata.labels.environment}}
+      SyncStatus: {{.app.status.sync.status}}
+      HealthStatus: {{.app.status.health.status}}
+      Revision: {{.app.status.sync.revision}}
+      RevisionShort: {{substr 0 7 .app.status.sync.revision}}
+      ConfigRepoUrl: {{.app.spec.source.repoURL}}
+      StartedAt: {{.app.status.operationState.startedAt}}
+      FinishedAt: {{.app.status.operationState.finishedAt}}
+      OperationMessage: {{.app.status.operationState.message}}
     webhook:
       webhook-{{REPOSITORY_ID}}:
         method: POST
