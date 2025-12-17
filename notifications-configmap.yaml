@@ -25,6 +25,7 @@ data:
       Event: {{.app.status.operationState.phase}}
       RepositoryId: {{.app.metadata.labels.configenvrepoid}}
       Environment: {{.app.metadata.labels.environment}}
+      NameSpace: {{.app.spec.destination.namespace}}
       SyncStatus: {{.app.status.sync.status}}
       HealthStatus: {{.app.status.health.status}}
       Revision: {{.app.status.sync.revision}}
