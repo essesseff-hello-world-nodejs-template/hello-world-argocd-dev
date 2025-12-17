@@ -7,7 +7,7 @@ metadata:
     app: hello-world
     environment: dev
     essesseff: "true"
-    config-env-repo-id: "{{REPOSITORY_ID}}"
+    configenvrepoid: "{{REPOSITORY_ID}}"
 spec:
   project: default
   source:
