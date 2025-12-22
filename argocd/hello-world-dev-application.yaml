@@ -11,7 +11,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/essesseff-hello-world-flask-template/hello-world-config-dev
+    repoURL: https://github.com/essesseff-hello-world-nodejs-template/hello-world-config-dev
     targetRevision: main
     path: .
     helm:
@@ -19,7 +19,7 @@ spec:
         - values.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: essesseff-hello-world-flask-template
+    namespace: essesseff-hello-world-nodejs-template
   syncPolicy:
     automated:
       prune: true

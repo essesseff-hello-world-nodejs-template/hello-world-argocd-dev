@@ -12,7 +12,7 @@ data:
     url: $argocd-webhook-url
     headers:
     - name: x-api-key
-      value: $aws-api-gateway-key-essesseff-hello-world-flask-template
+      value: $aws-api-gateway-key-essesseff-hello-world-nodejs-template
     - name: x-app-secret
       value: $app-secret-{{REPOSITORY_ID}}
     - name: Content-Type
